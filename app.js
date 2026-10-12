@@ -180,14 +180,32 @@
     renderPrefList();
     renderMap(nationwide, false);
   }
+  // Mapshaper exports RFC 7946 counter-clockwise exteriors by default, whereas
+  // D3's spherical geoPath expects clockwise exteriors. Use display-only copies;
+  // the original geometries remain available for planar point-in-polygon checks.
+  function d3Compatible(feature) {
+    const geom = feature.geometry;
+    if (!geom || (geom.type !== "Polygon" && geom.type !== "MultiPolygon")) return feature;
+    const signedArea = ring => ring.reduce((sum, p, i) => {
+      const q = ring[(i + 1) % ring.length];
+      return sum + p[0] * q[1] - q[0] * p[1];
+    }, 0);
+    const orient = rings => rings.map((ring, i) => {
+      const ccw = signedArea(ring) > 0;
+      return (i === 0 ? ccw : !ccw) ? [...ring].reverse() : ring;
+    });
+    return {...feature, geometry: {...geom, coordinates: geom.type === "Polygon" ?
+      orient(geom.coordinates) : geom.coordinates.map(orient)}};
+  }
   function renderMap(features, isRegion) {
     const svg = d3.select(el("map"));
     svg.selectAll("*").remove();
-    const fc = {type: "FeatureCollection", features};
+    const displayFeatures = features.map(d3Compatible);
+    const fc = {type: "FeatureCollection", features: displayFeatures};
     const projection = d3.geoMercator().fitExtent([[38, 34], [862, 569]], fc);
     const path = d3.geoPath(projection);
     svgG = svg.append("g");
-    svgG.selectAll("path.map-region").data(features, codeOf).join("path")
+    svgG.selectAll("path.map-region").data(displayFeatures, codeOf).join("path")
       .attr("class", f => "map-region " + (records[codeOf(f)] ? "visited" : "not-visited"))
       .attr("d", path)
       .attr("stroke", "#fff")
