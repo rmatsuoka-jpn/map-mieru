@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f7f3">
+  <meta name="description" content="行ったことのある市区町村を塗り、都道府県ごとの制覇率を見える化する、自分だけの旅行記録地図。">
+  <title>map-mieru｜日本を、旅の記録で彩ろう</title>
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <div class="site-wrap">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="map-mieru トップページ"><span class="brand-mark" aria-hidden="true">◈</span> map<span class="brand-accent">-mieru</span></a>
+      <button id="openData" class="button button-outline" type="button">データの入出力 <span aria-hidden="true">↗</span></button>
+    </header>
+    <main>
+      <section class="intro">
+        <div class="intro-copy">
+          <span class="eyebrow">MY JAPAN TRAVEL MAP</span>
+          <h1>行った場所が、<br><em>わたしの地図</em>になる。</h1>
+          <p>思い出のある市区町村をひとつずつ色塗り。<br>全国と都道府県ごとの「制覇率」が見えてきます。</p>
+        </div>
+        <div class="intro-decoration" aria-hidden="true"><span>47</span><small>PREFECTURES</small></div>
+      </section>
+
+      <section class="metrics" aria-label="旅の記録">
+        <article class="metric"><span class="metric-title">訪問した市区町村</span><div class="metric-number"><strong id="visitedCount">—</strong><small id="visitedTotal"> / —</small></div><span class="metric-note">行ったことのある場所</span></article>
+        <article class="metric"><span class="metric-title">全国の制覇率</span><div class="metric-number"><strong id="nationalRate">—</strong><small>%</small></div><div class="metric-track"><div id="nationalBar" class="metric-fill" style="width:0%"></div></div></article>
+        <article class="metric"><span class="metric-title">訪問した都道府県</span><div class="metric-number"><strong id="prefVisitedCount">—</strong><small> / 47</small></div><span class="metric-note">次はどこへ行こう？</span></article>
+      </section>
+
+      <section class="workspace">
+        <section class="map-panel" aria-labelledby="mapHeading">
+          <div class="panel-topline">
+            <div>
+              <div class="breadcrumb"><button id="allJapan" type="button" class="breadcrumb-button">日本全国</button><span id="breadcrumbCurrent" hidden></span></div>
+              <h2 id="mapHeading">日本全国の訪問マップ</h2>
+              <p id="mapHelp" class="subtle">都道府県をタップすると、市区町村を塗れます。</p>
+            </div>
+            <button id="resetZoom" class="button button-small button-outline" type="button" title="地図の拡大縮小をリセット">表示を戻す</button>
+          </div>
+          <div class="map-container">
+            <div id="mapLoading" class="loading"><span class="spinner" aria-hidden="true"></span><span>日本地図を読み込んでいます…</span></div>
+            <svg id="map" viewBox="0 0 900 610" role="img" aria-label="日本地図。都道府県または市区町村をタップして操作します。" hidden></svg>
+            <div id="mapError" class="map-error" hidden><strong>地図を読み込めませんでした。</strong><span>インターネット接続を確認して再読み込みしてください。</span><button id="retryLoad" class="button button-primary" type="button">再読み込み</button></div>
+          </div>
+          <div class="map-footer">
+            <div class="legend"><span><i class="legend-color visited"></i>訪問済み</span><span><i class="legend-color not-visited"></i>未訪問</span></div>
+            <span>地図は拡大・ドラッグできます</span>
+          </div>
+        </section>
+
+        <aside class="side-panel" aria-label="都道府県と市区町村">
+          <div id="prefOverview">
+            <div class="side-heading"><div><span class="eyebrow">PREFECTURE PROGRESS</span><h2>都道府県別の制覇率</h2></div></div>
+            <p class="side-description">行ったことのある場所が増えると、県ごとのゲージが伸びていきます。</p>
+            <div class="sort-row"><span>都道府県を選ぶ</span><select id="sortPref" aria-label="都道府県の並び順"><option value="code">北から順に</option><option value="rate">制覇率が高い順</option><option value="visited">訪問数が多い順</option></select></div>
+            <div id="prefList" class="pref-list" aria-live="polite"></div>
+          </div>
+          <div id="municipalityOverview" hidden>
+            <button id="backToAll" type="button" class="back-link">← 全国マップに戻る</button>
+            <div class="side-heading"><div><span class="eyebrow">MUNICIPALITY CHECKLIST</span><h2 id="prefName">市区町村</h2></div><strong id="prefRate" class="pref-rate">—%</strong></div>
+            <div class="pref-summary"><span id="prefProgressText">— / — 市区町村</span><div class="metric-track"><div id="prefProgressBar" class="metric-fill" style="width:0%"></div></div></div>
+            <label class="search-label" for="citySearch">市区町村を探す</label>
+            <input id="citySearch" class="search-box" type="search" autocomplete="off" placeholder="例：那覇市、浦添市">
+            <p class="list-hint">地図上か一覧の市区町村をタップして、訪問済み／未訪問を切り替えます。</p>
+            <div id="cityList" class="city-list" aria-live="polite"></div>
+          </div>
+        </aside>
+      </section>
+      <section class="bottom-tip"><span class="tip-icon" aria-hidden="true">✦</span><div><h2>旅の記録は、端末の中に。</h2><p>色塗りの記録はブラウザに自動保存されます。端末変更やデータ消失に備えて、定期的にJSONファイルを書き出してください。GoogleマップのタイムラインJSONからの訪問候補抽出も試せます。</p></div><button id="openDataBottom" class="button button-primary" type="button">データを管理する</button></section>
+    </main>
+    <footer class="footer"><span>map-mieru · 旅の記録を、地図に。</span><span>地図データ：<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土交通省 国土数値情報</a> ／加工：<a href="https://github.com/ricewin/simplify-japan-geojson" target="_blank" rel="noopener">ricewin</a>（CC BY 4.0）</span></footer>
+  </div>
+
+  <dialog id="dataDialog" class="data-dialog" aria-labelledby="dataHeading">
+    <div class="dialog-header"><div><span class="eyebrow">YOUR DATA, YOUR MAP</span><h2 id="dataHeading">データの入出力</h2></div><button id="closeDialog" class="icon-button" type="button" aria-label="閉じる">✕</button></div>
+    <div class="dialog-content">
+      <section class="dialog-section"><h3>記録をバックアップ</h3><p>色塗りした市区町村のコードだけをJSONファイルに保存します。新しい端末ではそのファイルを読み込めます。</p><div class="dialog-actions"><button id="exportData" class="button button-primary" type="button">JSONで保存</button><label class="button button-outline file-label">バックアップを読み込む<input id="importData" type="file" accept=".json,application/json" hidden></label></div></section>
+      <section class="dialog-section"><h3>Googleマップのタイムライン <span class="beta-mark">試験版</span></h3><p>タイムラインから書き出した <code>location-history.json</code> のうち、5分以上の滞在地点を候補として抽出します。移動経路は制覇率に含めません。</p><p class="privacy-note">位置情報ファイルはブラウザ内で解析し、サーバーにアップロードしません。自動で訪問済みにはせず、確認してから登録します。境界付近は誤判定や取りこぼしがあります。</p><label class="button button-outline file-label">タイムラインJSONを選ぶ<input id="timelineInput" type="file" accept=".json,application/json" hidden></label><div id="timelineStatus" class="import-status" role="status" aria-live="polite"></div><div id="timelinePreview" hidden><div class="preview-heading"><strong id="previewHeading">訪問候補</strong><div class="dialog-actions"><button id="selectAllPreview" class="text-button" type="button">すべて選択</button><button id="deselectAllPreview" class="text-button" type="button">選択解除</button></div></div><div id="previewList" class="preview-list"></div><button id="applyTimeline" class="button button-primary" type="button">選択した候補を登録する</button></div></section>
+      <p class="dialog-note">現在はこのブラウザでのローカル保存です。ブラウザのデータを消すと復旧できないため、バックアップを推奨します。実際のタイムライン形式は端末・時期によって異なるため、未対応の形式があります。</p>
+    </div>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
